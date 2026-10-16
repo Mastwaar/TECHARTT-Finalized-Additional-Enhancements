@@ -1,0 +1,11 @@
+{
+  "name": "Remix Remix: Remix: Remix: Aura: AI Premium Stylist",
+  "description": "Personalized AI fashion assistant for wardrobe analysis, outfit recommendations, and gift suggestions with cultural modesty enforcement.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

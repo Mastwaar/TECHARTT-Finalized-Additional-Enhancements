@@ -1,0 +1,139 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && (request.auth.token.email_verified == true);
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn();
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- Validation Blueprints ---
+
+    function isValidUser(data) {
+      return data.uid is string && data.uid.size() <= 64 &&
+             data.email is string && data.email.size() <= 256 &&
+             data.name is string && data.name.size() <= 128 &&
+             (data.get('preferences', null) == null || (
+               data.preferences.get('style', 'Minimalist') is string &&
+               data.preferences.get('style', '').size() <= 50 &&
+               data.preferences.get('colors', []) is list &&
+               data.preferences.get('colors', []).size() <= 20 &&
+               data.preferences.get('occasions', []) is list &&
+               data.preferences.get('occasions', []).size() <= 20 &&
+               data.preferences.get('modestyEnforced', false) is bool &&
+               data.preferences.get('cultureRules', '') is string &&
+               data.preferences.get('cultureRules', '').size() <= 2000
+             ));
+    }
+
+    function isValidWardrobeItem(data) {
+      return data.imageUrl is string && data.imageUrl.size() <= 2048 &&
+             data.category is string && data.category.size() <= 50 &&
+             data.userId is string && data.userId.size() <= 64 &&
+             data.userId == request.auth.uid &&
+             data.get('color', 'Unknown') is string && data.get('color', '').size() <= 50 &&
+             data.get('season', 'All-Season') is string && data.get('season', '').size() <= 50 &&
+             data.get('formality', 'Casual') is string && data.get('formality', '').size() <= 50 &&
+             data.get('occasions', []) is list && data.get('occasions', []).size() <= 20 &&
+             data.get('confidence', 1.0) is number &&
+             data.get('isConfirmed', true) is bool;
+    }
+
+    function isValidSavedRecommendation(data) {
+      return data.title is string && data.title.size() <= 128 &&
+             data.description is string && data.description.size() <= 2000 &&
+             data.items is list && data.items.size() <= 50 &&
+             data.userId is string && data.userId.size() <= 64 &&
+             data.userId == request.auth.uid;
+    }
+
+    function isValidActivity(data) {
+      return data.product_id is string && data.product_id.size() <= 128 &&
+             data.activity_type is string && data.activity_type.size() <= 50 &&
+             data.session_id is string && data.session_id.size() <= 128 &&
+             data.get('value', 0) is number &&
+             (data.get('user_id', null) == null || (data.user_id is string && data.user_id.size() <= 64)) &&
+             (data.get('metadata', null) == null || data.metadata.keys().size() <= 10);
+    }
+
+    // --- Collection Rules ---
+
+    // Users
+    match /users/{userId} {
+      allow get: if (isOwner(userId) || isAdmin()) && isValidId(userId);
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUser(incoming()) && incoming().createdAt == request.time;
+      allow update: if isOwner(userId) && isValidId(userId) && isValidUser(incoming()) && (
+        // Action: Update Profile/Preferences
+        incoming().diff(existing()).affectedKeys().hasAny(['name', 'preferences', 'updatedAt']) &&
+        incoming().uid == existing().uid &&
+        incoming().email == existing().email &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time
+      );
+      
+      // Subcollection: Wardrobe
+      match /wardrobe/{itemId} {
+        allow list: if isOwner(userId);
+        allow get: if (isOwner(userId) || isAdmin()) && isValidId(itemId);
+        allow create: if isOwner(userId) && isValidId(itemId) && isValidWardrobeItem(incoming()) && incoming().createdAt == request.time;
+        allow update: if isOwner(userId) && isValidId(itemId) && isValidWardrobeItem(incoming()) && (
+          // Action: Confirm or Update Category
+          incoming().diff(existing()).affectedKeys().hasAny(['category', 'isConfirmed', 'formality', 'season', 'occasions']) &&
+          incoming().userId == existing().userId &&
+          incoming().imageUrl == existing().imageUrl &&
+          incoming().createdAt == existing().createdAt
+        );
+        allow delete: if isOwner(userId);
+      }
+
+      // Subcollection: Saved Recommendations
+      match /saved_recommendations/{recId} {
+        allow list: if isOwner(userId);
+        allow get: if (isOwner(userId) || isAdmin()) && isValidId(recId);
+        allow create: if isOwner(userId) && isValidId(recId) && isValidSavedRecommendation(incoming()) && incoming().createdAt == request.time;
+        allow delete: if isOwner(userId) && isValidId(recId);
+      }
+    }
+
+    // Activities
+    match /activities/{activityId} {
+      allow create: if isValidId(activityId) && (isSignedIn() || true) && isValidActivity(incoming()) && incoming().timestamp == request.time;
+      allow list: if isAdmin();
+      allow get: if isAdmin();
+    }
+
+    // Admins
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}

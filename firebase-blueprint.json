@@ -1,0 +1,109 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Stores user preferences and basic information.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "name": { "type": "string" },
+        "preferences": {
+          "type": "object",
+          "properties": {
+            "style": { "type": "string" },
+            "colors": { "type": "array", "items": { "type": "string" } },
+            "occasions": { "type": "array", "items": { "type": "string" } },
+            "modestyEnforced": { "type": "boolean" },
+            "cultureRules": { "type": "string" }
+          }
+        },
+        "createdAt": { "type": "object", "description": "Firestore server timestamp" },
+        "updatedAt": { "type": "object", "description": "Firestore server timestamp" }
+      },
+      "required": ["uid", "email", "name"]
+    },
+    "WardrobeItem": {
+      "title": "Wardrobe Item",
+      "description": "An item uploaded by the user analyzed by AI.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "imageUrl": { "type": "string", "format": "uri" },
+        "category": { "type": "string" },
+        "color": { "type": "string" },
+        "season": { "type": "string" },
+        "formality": { "type": "string" },
+        "silhouette": { "type": "string" },
+        "fit": { "type": "string" },
+        "coverage": { "type": "string" },
+        "texture": { "type": "string" },
+        "occasions": { "type": "array", "items": { "type": "string" } },
+        "confidence": { "type": "number" },
+        "isConfirmed": { "type": "boolean" },
+        "createdAt": { "type": "object", "description": "Firestore server timestamp" }
+      },
+      "required": ["imageUrl", "category", "userId"]
+    },
+    "SavedRecommendation": {
+      "title": "Saved Recommendation",
+      "description": "A curated outfit or recommendation saved by the user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "items": { "type": "array", "items": { "type": "object" } },
+        "createdAt": { "type": "object", "description": "Firestore server timestamp" }
+      },
+      "required": ["title", "items", "userId"]
+    },
+    "Activity": {
+      "title": "Activity Log",
+      "description": "Telemetry and interaction tracking for retail intelligence.",
+      "type": "object",
+      "properties": {
+        "product_id": { "type": "string" },
+        "activity_type": { "type": "string" },
+        "value": { "type": "number" },
+        "metadata": { "type": "object" },
+        "user_id": { "type": "string" },
+        "session_id": { "type": "string" },
+        "timestamp": { "type": "object", "description": "Firestore server timestamp" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["product_id", "activity_type", "session_id"]
+    },
+    "Admin": {
+      "title": "Admin Record",
+      "description": "Defines administrative roles for the retailer dashboard.",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string" }
+      },
+      "required": ["role"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Root user documentation."
+    },
+    "/users/{userId}/wardrobe/{itemId}": {
+      "schema": "WardrobeItem",
+      "description": "User specific wardrobe collection."
+    },
+    "/users/{userId}/saved_recommendations/{recId}": {
+      "schema": "SavedRecommendation",
+      "description": "User specific saved recommendations."
+    },
+    "/activities/{activityId}": {
+      "schema": "Activity",
+      "description": "Global telemetry log."
+    },
+    "/admins/{adminId}": {
+      "schema": "Admin",
+      "description": "Administrative role mapping."
+    }
+  }
+}
